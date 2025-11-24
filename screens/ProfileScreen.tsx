@@ -11,6 +11,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { StorageService, NotificationSettings } from '@/utils/storage';
 import { NotificationService } from '@/utils/notifications';
+import { ExportService } from '@/utils/export';
 import { Spacing, BorderRadius } from '@/constants/theme';
 import { ProfileStackParamList } from '@/navigation/ProfileStackNavigator';
 
@@ -49,7 +50,7 @@ export default function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
   const { user, logout, updateUser } = useAuth();
-  const { dailyGoal, setDailyGoal: saveDailyGoal } = useWaterTracking();
+  const { dailyGoal, setDailyGoal: saveDailyGoal, logs, stats } = useWaterTracking();
   const { colorScheme, toggleColorScheme } = useColorScheme();
   
   const [showGoalCalculator, setShowGoalCalculator] = useState(false);
@@ -174,6 +175,51 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  const handleExportData = async () => {
+    if (!user) return;
+    
+    try {
+      const preview = await ExportService.getExportPreview(logs, stats);
+      
+      Alert.alert(
+        'Export Data',
+        preview,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Export CSV',
+            onPress: async () => {
+              try {
+                const success = await ExportService.exportToCSV(
+                  logs,
+                  stats,
+                  dailyGoal,
+                  user.name,
+                  { includeLogs: true, includeStats: true }
+                );
+                
+                if (success) {
+                  Alert.alert('Success', 'Your data has been exported successfully!');
+                }
+              } catch (error: any) {
+                if (error.message === 'SHARING_NOT_AVAILABLE') {
+                  Alert.alert(
+                    'Export Not Available',
+                    'Data export is only available on mobile devices. Please use the Expo Go app on your phone or tablet to export your data.'
+                  );
+                } else {
+                  Alert.alert('Error', 'Failed to export data. Please try again.');
+                }
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to prepare export. Please try again.');
+    }
   };
 
   const handleDeleteAccount = () => {
@@ -392,6 +438,29 @@ export default function ProfileScreen() {
               <MaterialCommunityIcons name="trophy" size={24} color={colors.primary} />
               <ThemedText style={[styles.settingLabel, { color: colors.text }]}>
                 View Achievements
+              </ThemedText>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textSecondary} />
+          </View>
+        </Pressable>
+      </View>
+
+      <View style={styles.section}>
+        <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
+          Data
+        </ThemedText>
+        <Pressable
+          style={({ pressed }) => [
+            styles.settingCard,
+            { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }
+          ]}
+          onPress={handleExportData}
+        >
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <MaterialCommunityIcons name="download" size={24} color={colors.text} />
+              <ThemedText style={[styles.settingLabel, { color: colors.text }]}>
+                Export Data to CSV
               </ThemedText>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textSecondary} />
