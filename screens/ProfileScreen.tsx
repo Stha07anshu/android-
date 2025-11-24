@@ -12,6 +12,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { StorageService, NotificationSettings } from '@/utils/storage';
 import { NotificationService } from '@/utils/notifications';
 import { Spacing, BorderRadius } from '@/constants/theme';
+import { ProfileStackParamList } from '@/navigation/ProfileStackNavigator';
 
 const calculateWaterGoal = (weight: number, activityLevel: string): number => {
   const baseAmount = weight * 30;
@@ -28,7 +29,7 @@ const calculateWaterGoal = (weight: number, activityLevel: string): number => {
 
 type RootStackParamList = {
   Login: undefined;
-};
+} & ProfileStackParamList;
 
 const AVATARS = [
   { id: 'avatar-waves', source: require('@/assets/images/avatars/avatar-waves.png') },
@@ -373,6 +374,29 @@ export default function ProfileScreen() {
             </Pressable>
           ) : null}
         </View>
+      </View>
+
+      <View style={styles.section}>
+        <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
+          Progress
+        </ThemedText>
+        <Pressable
+          style={({ pressed }) => [
+            styles.settingCard,
+            { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }
+          ]}
+          onPress={() => navigation.navigate('Achievements')}
+        >
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <MaterialCommunityIcons name="trophy" size={24} color={colors.primary} />
+              <ThemedText style={[styles.settingLabel, { color: colors.text }]}>
+                View Achievements
+              </ThemedText>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textSecondary} />
+          </View>
+        </Pressable>
       </View>
 
       <View style={styles.section}>

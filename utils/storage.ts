@@ -6,6 +6,8 @@ const KEYS = {
   WATER_LOGS: '@hydrotrack:water_logs',
   DAILY_GOAL: '@hydrotrack:daily_goal',
   NOTIFICATION_SETTINGS: '@hydrotrack:notification_settings',
+  ACHIEVEMENTS: '@hydrotrack:achievements',
+  STATS: '@hydrotrack:stats',
 };
 
 export interface User {
@@ -30,6 +32,19 @@ export interface NotificationSettings {
   intervalHours: number;
   startHour: number;
   endHour: number;
+}
+
+export interface UnlockedAchievement {
+  id: string;
+  unlockedAt: number;
+}
+
+export interface UserStats {
+  currentStreak: number;
+  bestStreak: number;
+  totalDaysMetGoal: number;
+  totalWaterConsumed: number;
+  lastActivityDate: string;
 }
 
 export const StorageService = {
@@ -81,7 +96,25 @@ export const StorageService = {
     return data ? JSON.parse(data) : null;
   },
 
+  async saveAchievements(achievements: UnlockedAchievement[]): Promise<void> {
+    await AsyncStorage.setItem(KEYS.ACHIEVEMENTS, JSON.stringify(achievements));
+  },
+
+  async getAchievements(): Promise<UnlockedAchievement[]> {
+    const data = await AsyncStorage.getItem(KEYS.ACHIEVEMENTS);
+    return data ? JSON.parse(data) : [];
+  },
+
+  async saveStats(stats: UserStats): Promise<void> {
+    await AsyncStorage.setItem(KEYS.STATS, JSON.stringify(stats));
+  },
+
+  async getStats(): Promise<UserStats | null> {
+    const data = await AsyncStorage.getItem(KEYS.STATS);
+    return data ? JSON.parse(data) : null;
+  },
+
   async clearAll(): Promise<void> {
-    await AsyncStorage.multiRemove([KEYS.USER, KEYS.WATER_LOGS, KEYS.DAILY_GOAL, KEYS.NOTIFICATION_SETTINGS]);
+    await AsyncStorage.multiRemove([KEYS.USER, KEYS.WATER_LOGS, KEYS.DAILY_GOAL, KEYS.NOTIFICATION_SETTINGS, KEYS.ACHIEVEMENTS, KEYS.STATS]);
   },
 };
