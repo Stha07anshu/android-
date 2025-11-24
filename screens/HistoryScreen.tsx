@@ -1,14 +1,19 @@
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
 import { ThemedText } from '../components/ThemedText';
 import { ScreenScrollView } from '../components/ScreenScrollView';
 import { useWaterTracking } from '../hooks/useWaterTracking';
 import { useTheme } from '../hooks/useTheme';
 import { Spacing, BorderRadius } from '../constants/theme';
+import React, { useState, useMemo } from 'react';
+
+type ViewMode = 'daily' | 'weekly' | 'monthly';
 
 export function HistoryScreen() {
   const { colors } = useTheme();
   const { getHistoricalData, dailyGoal } = useWaterTracking();
+  const [viewMode, setViewMode] = useState<ViewMode>('daily');
   
   const historicalData = getHistoricalData();
 
@@ -22,6 +27,7 @@ export function HistoryScreen() {
   };
 
   const getPercentage = (total: number) => {
+    if (dailyGoal <= 0) return 0;
     return Math.round((total / dailyGoal) * 100);
   };
 
@@ -56,8 +62,177 @@ export function HistoryScreen() {
 
   const stats = calculateStats();
 
+  const getWeeklyData = () => {
+    const weeks: { label: string; total: number; average: number }[] = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 4; i++) {
+      const weekEnd = new Date(today);
+      weekEnd.setDate(today.getDate() - (i * 7));
+      const weekStart = new Date(weekEnd);
+      weekStart.setDate(weekEnd.getDate() - 6);
+      
+      let weekTotal = 0;
+      let daysWithData = 0;
+      
+      for (let d = new Date(weekStart); d <= weekEnd; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        const dayData = historicalData.find(day => day.date === dateStr);
+        if (dayData) {
+          weekTotal += dayData.total;
+          daysWithData++;
+        }
+      }
+      
+      const weekAverage = daysWithData > 0 ? Math.round(weekTotal / 7) : 0;
+      const weekLabel = i === 0 ? 'This Week' : `${i} Week${i > 1 ? 's' : ''} Ago`;
+      
+      weeks.unshift({ label: weekLabel, total: weekTotal, average: weekAverage });
+    }
+    
+    return weeks;
+  };
+
+  const getMonthlyData = () => {
+    const months: { label: string; total: number; average: number }[] = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 6; i++) {
+      const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+      const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+      
+      let monthTotal = 0;
+      let daysInMonth = monthEnd.getDate();
+      
+      for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        const dayData = historicalData.find(day => day.date === dateStr);
+        if (dayData) {
+          monthTotal += dayData.total;
+        }
+      }
+      
+      const monthAverage = Math.round(monthTotal / daysInMonth);
+      const monthLabel = monthDate.toLocaleDateString('en-US', { month: 'short', year: i > 0 ? '2-digit' : undefined });
+      
+      months.unshift({ label: monthLabel, total: monthTotal, average: monthAverage });
+    }
+    
+    return months;
+  };
+
+  const weeklyData = useMemo(() => getWeeklyData(), [historicalData]);
+  const monthlyData = useMemo(() => getMonthlyData(), [historicalData]);
+
+  const renderBarChart = (data: { label: string; average: number }[]) => {
+    if (dailyGoal <= 0) {
+      return (
+        <View style={styles.chartContainer}>
+          <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
+            Set a daily goal in your profile to see chart visualizations
+          </ThemedText>
+        </View>
+      );
+    }
+
+    const chartHeight = 180;
+    const chartWidth = 320;
+    const barWidth = (chartWidth - 40) / data.length;
+    const maxValue = Math.max(...data.map(d => d.average), dailyGoal, 1);
+    const scale = (chartHeight - 40) / maxValue;
+    const goalLineY = chartHeight - 20 - (dailyGoal * scale);
+
+    return (
+      <View style={styles.chartContainer}>
+        <Svg height={chartHeight} width={chartWidth}>
+          <Line
+            x1="20"
+            y1={goalLineY}
+            x2={chartWidth - 20}
+            y2={goalLineY}
+            stroke={colors.success}
+            strokeWidth="1"
+            strokeDasharray="4,4"
+          />
+          <SvgText
+            x="24"
+            y={goalLineY - 4}
+            fill={colors.success}
+            fontSize="10"
+            fontWeight="600"
+          >
+            Goal
+          </SvgText>
+          
+          {data.map((item, index) => {
+            const barHeight = item.average * scale;
+            const x = 20 + (index * barWidth) + (barWidth / 4);
+            const y = chartHeight - 20 - barHeight;
+            const isGoalMet = item.average >= dailyGoal;
+            
+            return (
+              <React.Fragment key={index}>
+                <Rect
+                  x={x}
+                  y={y}
+                  width={barWidth / 2}
+                  height={barHeight}
+                  fill={isGoalMet ? colors.success : colors.primary}
+                  rx="3"
+                />
+                <SvgText
+                  x={x + barWidth / 4}
+                  y={chartHeight - 4}
+                  fill={colors.textSecondary}
+                  fontSize="10"
+                  textAnchor="middle"
+                >
+                  {item.label.length > 8 ? item.label.substring(0, 8) : item.label}
+                </SvgText>
+                <SvgText
+                  x={x + barWidth / 4}
+                  y={y - 4}
+                  fill={colors.text}
+                  fontSize="10"
+                  fontWeight="600"
+                  textAnchor="middle"
+                >
+                  {item.average}
+                </SvgText>
+              </React.Fragment>
+            );
+          })}
+        </Svg>
+      </View>
+    );
+  };
+
   return (
     <ScreenScrollView contentContainerStyle={styles.container}>
+      <View style={styles.viewModeToggle}>
+        {(['daily', 'weekly', 'monthly'] as ViewMode[]).map((mode) => (
+          <Pressable
+            key={mode}
+            style={({ pressed }) => [
+              styles.viewModeButton,
+              viewMode === mode && { backgroundColor: colors.primary },
+              { borderColor: colors.border },
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={() => setViewMode(mode)}
+          >
+            <ThemedText
+              style={[
+                styles.viewModeText,
+                { color: viewMode === mode ? '#FFFFFF' : colors.textSecondary },
+              ]}
+            >
+              {mode.charAt(0).toUpperCase() + mode.slice(1)}
+            </ThemedText>
+          </Pressable>
+        ))}
+      </View>
       <View style={styles.statsSection}>
         <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <MaterialCommunityIcons name="chart-line" size={24} color={colors.primary} />
@@ -90,15 +265,61 @@ export function HistoryScreen() {
         </View>
       </View>
 
+      {viewMode === 'weekly' ? (
+        <View style={styles.chartSection}>
+          <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
+            Weekly Average Intake
+          </ThemedText>
+          {renderBarChart(weeklyData)}
+          <View style={styles.legendContainer}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendBox, { backgroundColor: colors.primary }]} />
+              <ThemedText style={[styles.legendText, { color: colors.textSecondary }]}>
+                Below Goal
+              </ThemedText>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendBox, { backgroundColor: colors.success }]} />
+              <ThemedText style={[styles.legendText, { color: colors.textSecondary }]}>
+                Goal Met
+              </ThemedText>
+            </View>
+          </View>
+        </View>
+      ) : viewMode === 'monthly' ? (
+        <View style={styles.chartSection}>
+          <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
+            Monthly Average Intake
+          </ThemedText>
+          {renderBarChart(monthlyData)}
+          <View style={styles.legendContainer}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendBox, { backgroundColor: colors.primary }]} />
+              <ThemedText style={[styles.legendText, { color: colors.textSecondary }]}>
+                Below Goal
+              </ThemedText>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendBox, { backgroundColor: colors.success }]} />
+              <ThemedText style={[styles.legendText, { color: colors.textSecondary }]}>
+                Goal Met
+              </ThemedText>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
       <View style={styles.historySection}>
         <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-          History
+          {viewMode === 'daily' ? 'History' : 'Detailed Statistics'}
         </ThemedText>
-        {historicalData.length === 0 ? (
+        {viewMode === 'daily' && historicalData.length === 0 ? (
           <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
             No history yet. Start tracking your water intake!
           </ThemedText>
-        ) : (
+        ) : null}
+        
+        {viewMode === 'daily' && historicalData.length > 0 ? (
           <View style={styles.historyList}>
             {historicalData.map((day) => {
               const percentage = getPercentage(day.total);
@@ -132,7 +353,7 @@ export function HistoryScreen() {
                         styles.progressFill, 
                         { 
                           backgroundColor: isGoalMet ? colors.success : colors.primary,
-                          width: `${Math.min(percentage, 100)}%`
+                          width: dailyGoal > 0 ? `${Math.min(percentage, 100)}%` : '0%'
                         }
                       ]} 
                     />
@@ -144,7 +365,75 @@ export function HistoryScreen() {
               );
             })}
           </View>
-        )}
+        ) : null}
+        
+        {viewMode === 'weekly' ? (
+          <View style={styles.historyList}>
+            {weeklyData.map((week, index) => (
+              <View 
+                key={index} 
+                style={[styles.historyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              >
+                <View style={styles.historyHeader}>
+                  <ThemedText style={[styles.historyDate, { color: colors.text }]}>
+                    {week.label}
+                  </ThemedText>
+                  <ThemedText style={[styles.historyAmount, { color: colors.text }]}>
+                    {week.average} ml avg
+                  </ThemedText>
+                </View>
+                <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+                  <View 
+                    style={[
+                      styles.progressFill, 
+                      { 
+                        backgroundColor: dailyGoal > 0 && week.average >= dailyGoal ? colors.success : colors.primary,
+                        width: dailyGoal > 0 ? `${Math.min((week.average / dailyGoal) * 100, 100)}%` : '0%'
+                      }
+                    ]} 
+                  />
+                </View>
+                <ThemedText style={[styles.percentageText, { color: colors.textSecondary }]}>
+                  Total: {week.total} ml
+                </ThemedText>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        
+        {viewMode === 'monthly' ? (
+          <View style={styles.historyList}>
+            {monthlyData.map((month, index) => (
+              <View 
+                key={index} 
+                style={[styles.historyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              >
+                <View style={styles.historyHeader}>
+                  <ThemedText style={[styles.historyDate, { color: colors.text }]}>
+                    {month.label}
+                  </ThemedText>
+                  <ThemedText style={[styles.historyAmount, { color: colors.text }]}>
+                    {month.average} ml avg
+                  </ThemedText>
+                </View>
+                <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+                  <View 
+                    style={[
+                      styles.progressFill, 
+                      { 
+                        backgroundColor: dailyGoal > 0 && month.average >= dailyGoal ? colors.success : colors.primary,
+                        width: dailyGoal > 0 ? `${Math.min((month.average / dailyGoal) * 100, 100)}%` : '0%'
+                      }
+                    ]} 
+                  />
+                </View>
+                <ThemedText style={[styles.percentageText, { color: colors.textSecondary }]}>
+                  Total: {month.total} ml
+                </ThemedText>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
     </ScreenScrollView>
   );
@@ -154,6 +443,48 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: Spacing['2xl'],
     paddingBottom: Spacing['4xl'],
+  },
+  viewModeToggle: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  viewModeButton: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.xs,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  viewModeText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  chartSection: {
+    marginBottom: Spacing['2xl'],
+  },
+  chartContainer: {
+    alignItems: 'center',
+    marginVertical: Spacing.lg,
+  },
+  legendContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.lg,
+    marginTop: Spacing.md,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  legendBox: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 12,
   },
   statsSection: {
     flexDirection: 'row',
