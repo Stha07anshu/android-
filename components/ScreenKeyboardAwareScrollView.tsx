@@ -16,9 +16,6 @@ export function ScreenKeyboardAwareScrollView({
   keyboardShouldPersistTaps = "handled",
   ...scrollViewProps
 }: KeyboardAwareScrollViewProps) {
-  const { theme } = useTheme();
-  const { paddingTop, paddingBottom, scrollInsetBottom } = useScreenInsets();
-
   /**
    * KeyboardAwareScrollView isn't compatible with web (it relies on native APIs), so the code falls back to ScreenScrollView on web to avoid runtime errors.
    */
@@ -34,6 +31,19 @@ export function ScreenKeyboardAwareScrollView({
       </ScreenScrollView>
     );
   }
+
+  return <KeyboardAwareScrollViewNative style={style} contentContainerStyle={contentContainerStyle} keyboardShouldPersistTaps={keyboardShouldPersistTaps} {...scrollViewProps}>{children}</KeyboardAwareScrollViewNative>;
+}
+
+function KeyboardAwareScrollViewNative({
+  children,
+  contentContainerStyle,
+  style,
+  keyboardShouldPersistTaps,
+  ...scrollViewProps
+}: KeyboardAwareScrollViewProps) {
+  const { theme } = useTheme();
+  const { paddingTop, paddingBottom, scrollInsetBottom } = useScreenInsets();
 
   return (
     <KeyboardAwareScrollView

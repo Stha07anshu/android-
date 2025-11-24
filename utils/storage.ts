@@ -13,6 +13,8 @@ export interface User {
   email: string;
   avatar: string;
   dailyGoal: number;
+  weight?: number;
+  activityLevel?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
 }
 
 export interface WaterLog {
