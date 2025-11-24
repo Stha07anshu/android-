@@ -1,14 +1,16 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Feather } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Platform, StyleSheet } from "react-native";
 import HomeStackNavigator from "@/navigation/HomeStackNavigator";
+import { HistoryStackNavigator } from "@/navigation/HistoryStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
 
 export type MainTabParamList = {
   HomeTab: undefined;
+  HistoryTab: undefined;
   ProfileTab: undefined;
 };
 
@@ -49,7 +51,17 @@ export default function MainTabNavigator() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, size }) => (
-            <Feather name="home" size={size} color={color} />
+            <MaterialCommunityIcons name="water-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="HistoryTab"
+        component={HistoryStackNavigator}
+        options={{
+          title: "History",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="calendar-clock" size={size} color={color} />
           ),
         }}
       />
@@ -59,7 +71,7 @@ export default function MainTabNavigator() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, size }) => (
-            <Feather name="user" size={size} color={color} />
+            <MaterialCommunityIcons name="account-circle-outline" size={size} color={color} />
           ),
         }}
       />

@@ -1,30 +1,44 @@
 import { Platform } from "react-native";
 
-const tintColorLight = "#007AFF";
-const tintColorDark = "#0A84FF";
+const primaryLight = "#4A90E2";
+const primaryDark = "#5AA3F0";
 
 export const Colors = {
   light: {
-    text: "#11181C",
+    primary: "#4A90E2",
+    secondary: "#5FC9E8",
+    background: "#F5F9FC",
+    surface: "#FFFFFF",
+    text: "#1A2B3C",
+    textSecondary: "#6B7C8C",
+    success: "#4CAF50",
+    border: "#E0E8F0",
     buttonText: "#FFFFFF",
-    tabIconDefault: "#687076",
-    tabIconSelected: tintColorLight,
-    link: "#007AFF",
-    backgroundRoot: "#FFFFFF", // Elevation 0
-    backgroundDefault: "#F2F2F2", // Elevation 1
-    backgroundSecondary: "#E6E6E6", // Elevation 2
-    backgroundTertiary: "#D9D9D9", // Elevation 3
+    tabIconDefault: "#6B7C8C",
+    tabIconSelected: primaryLight,
+    link: "#4A90E2",
+    backgroundRoot: "#F5F9FC",
+    backgroundDefault: "#FFFFFF",
+    backgroundSecondary: "#F5F9FC",
+    backgroundTertiary: "#E0E8F0",
   },
   dark: {
-    text: "#ECEDEE",
+    primary: "#5AA3F0",
+    secondary: "#6ED4EC",
+    background: "#0F1419",
+    surface: "#1A2530",
+    text: "#E8F1F8",
+    textSecondary: "#9BADB8",
+    success: "#66BB6A",
+    border: "#2A3945",
     buttonText: "#FFFFFF",
-    tabIconDefault: "#9BA1A6",
-    tabIconSelected: tintColorDark,
-    link: "#0A84FF",
-    backgroundRoot: "#1F2123", // Elevation 0
-    backgroundDefault: "#2A2C2E", // Elevation 1
-    backgroundSecondary: "#353739", // Elevation 2
-    backgroundTertiary: "#404244", // Elevation 3
+    tabIconDefault: "#9BADB8",
+    tabIconSelected: primaryDark,
+    link: "#5AA3F0",
+    backgroundRoot: "#0F1419",
+    backgroundDefault: "#1A2530",
+    backgroundSecondary: "#1F2A35",
+    backgroundTertiary: "#2A3945",
   },
 };
 
