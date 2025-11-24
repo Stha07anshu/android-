@@ -5,6 +5,7 @@ const KEYS = {
   THEME: '@hydrotrack:theme',
   WATER_LOGS: '@hydrotrack:water_logs',
   DAILY_GOAL: '@hydrotrack:daily_goal',
+  NOTIFICATION_SETTINGS: '@hydrotrack:notification_settings',
 };
 
 export interface User {
@@ -22,6 +23,13 @@ export interface WaterLog {
   amount: number;
   timestamp: number;
   date: string;
+}
+
+export interface NotificationSettings {
+  enabled: boolean;
+  intervalHours: number;
+  startHour: number;
+  endHour: number;
 }
 
 export const StorageService = {
@@ -64,7 +72,16 @@ export const StorageService = {
     return data ? parseInt(data, 10) : 2000;
   },
 
+  async setNotificationSettings(settings: NotificationSettings): Promise<void> {
+    await AsyncStorage.setItem(KEYS.NOTIFICATION_SETTINGS, JSON.stringify(settings));
+  },
+
+  async getNotificationSettings(): Promise<NotificationSettings | null> {
+    const data = await AsyncStorage.getItem(KEYS.NOTIFICATION_SETTINGS);
+    return data ? JSON.parse(data) : null;
+  },
+
   async clearAll(): Promise<void> {
-    await AsyncStorage.multiRemove([KEYS.USER, KEYS.WATER_LOGS, KEYS.DAILY_GOAL]);
+    await AsyncStorage.multiRemove([KEYS.USER, KEYS.WATER_LOGS, KEYS.DAILY_GOAL, KEYS.NOTIFICATION_SETTINGS]);
   },
 };

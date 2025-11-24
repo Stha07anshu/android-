@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, StyleSheet, Pressable, Image, Switch, TextInput, Alert, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -9,7 +9,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useWaterTracking } from '@/hooks/useWaterTracking';
 import { useTheme } from '@/hooks/useTheme';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { StorageService } from '@/utils/storage';
+import { StorageService, NotificationSettings } from '@/utils/storage';
+import { NotificationService } from '@/utils/notifications';
 import { Spacing, BorderRadius } from '@/constants/theme';
 
 const calculateWaterGoal = (weight: number, activityLevel: string): number => {
@@ -55,6 +56,22 @@ export default function ProfileScreen() {
   const [selectedActivity, setSelectedActivity] = useState<string>('moderate');
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState(dailyGoal.toString());
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
+    enabled: false,
+    intervalHours: 2,
+    startHour: 8,
+    endHour: 20,
+  });
+
+  useEffect(() => {
+    loadNotificationSettings();
+  }, []);
+
+  const loadNotificationSettings = async () => {
+    const settings = await NotificationService.getSettings();
+    setNotificationSettings(settings);
+  };
 
   const calculatedGoal = weightInput ? calculateWaterGoal(parseInt(weightInput, 10) || 70, selectedActivity) : 2000;
 
@@ -101,6 +118,43 @@ export default function ProfileScreen() {
     }
     setGoalInput(calculatedGoal.toString());
     setShowGoalCalculator(false);
+  };
+
+  const handleToggleNotifications = async (value: boolean) => {
+    const newSettings = { ...notificationSettings, enabled: value };
+    setNotificationSettings(newSettings);
+    
+    if (value) {
+      const hasPermission = await NotificationService.requestPermissions();
+      if (!hasPermission) {
+        Alert.alert(
+          'Permission Required',
+          'Please enable notifications in your device settings to use this feature.',
+          [{ text: 'OK' }]
+        );
+        setNotificationSettings({ ...notificationSettings, enabled: false });
+        return;
+      }
+    }
+    
+    await NotificationService.saveSettings(newSettings);
+  };
+
+  const handleSaveNotificationSettings = async () => {
+    if (notificationSettings.startHour >= notificationSettings.endHour) {
+      Alert.alert('Invalid Time Range', 'Start hour must be before end hour');
+      return;
+    }
+    
+    if (notificationSettings.intervalHours <= 0) {
+      Alert.alert('Invalid Interval', 'Interval must be at least 1 hour');
+      return;
+    }
+    
+    await NotificationService.saveSettings(notificationSettings);
+    await loadNotificationSettings();
+    setShowNotificationSettings(false);
+    Alert.alert('Success', 'Notification settings saved successfully');
   };
 
   const handleLogout = () => {
@@ -279,6 +333,50 @@ export default function ProfileScreen() {
 
       <View style={styles.section}>
         <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
+          Reminders
+        </ThemedText>
+        <View style={[styles.settingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <MaterialCommunityIcons 
+                name="bell" 
+                size={24} 
+                color={colors.text} 
+              />
+              <ThemedText style={[styles.settingLabel, { color: colors.text }]}>
+                Enable Reminders
+              </ThemedText>
+            </View>
+            <Switch
+              value={notificationSettings.enabled}
+              onValueChange={handleToggleNotifications}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+          {notificationSettings.enabled ? (
+            <Pressable
+              style={({ pressed }) => [
+                styles.configureButton,
+                { 
+                  backgroundColor: colors.background,
+                  borderColor: colors.primary,
+                  opacity: pressed ? 0.7 : 1
+                }
+              ]}
+              onPress={() => setShowNotificationSettings(true)}
+            >
+              <MaterialCommunityIcons name="cog" size={18} color={colors.primary} />
+              <ThemedText style={[styles.configureButtonText, { color: colors.primary }]}>
+                Configure Reminder Schedule
+              </ThemedText>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
           Account
         </ThemedText>
         <Pressable
@@ -415,6 +513,156 @@ export default function ProfileScreen() {
                 onPress={handleApplyCalculatedGoal}
               >
                 <ThemedText style={styles.applyButtonText}>Apply</ThemedText>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={showNotificationSettings}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowNotificationSettings(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowNotificationSettings(false)}
+        >
+          <Pressable 
+            style={[styles.modalContent, { backgroundColor: colors.surface }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <ThemedText style={[styles.modalTitle, { color: colors.text }]}>
+                Reminder Schedule
+              </ThemedText>
+              <Pressable onPress={() => setShowNotificationSettings(false)}>
+                <MaterialCommunityIcons name="close" size={24} color={colors.text} />
+              </Pressable>
+            </View>
+
+            <View style={styles.notificationSettingsContainer}>
+              <View style={styles.settingGroup}>
+                <ThemedText style={[styles.inputLabel, { color: colors.text }]}>
+                  Reminder Interval
+                </ThemedText>
+                <View style={styles.intervalOptions}>
+                  {[1, 2, 3, 4].map((hours) => (
+                    <Pressable
+                      key={hours}
+                      style={({ pressed }) => [
+                        styles.intervalButton,
+                        {
+                          backgroundColor: notificationSettings.intervalHours === hours ? colors.primary : colors.background,
+                          borderColor: colors.border,
+                          opacity: pressed ? 0.7 : 1
+                        }
+                      ]}
+                      onPress={() => setNotificationSettings({ ...notificationSettings, intervalHours: hours })}
+                    >
+                      <ThemedText style={[
+                        styles.intervalButtonText,
+                        { color: notificationSettings.intervalHours === hours ? '#FFFFFF' : colors.text }
+                      ]}>
+                        {hours}h
+                      </ThemedText>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.settingGroup}>
+                <ThemedText style={[styles.inputLabel, { color: colors.text }]}>
+                  Active Hours
+                </ThemedText>
+                <View style={styles.timeRangeContainer}>
+                  <View style={styles.timeInputGroup}>
+                    <ThemedText style={[styles.timeLabel, { color: colors.textSecondary }]}>
+                      Start
+                    </ThemedText>
+                    <TextInput
+                      style={[styles.timeInput, { 
+                        backgroundColor: colors.background,
+                        borderColor: colors.border,
+                        color: colors.text
+                      }]}
+                      value={notificationSettings.startHour.toString()}
+                      onChangeText={(text) => {
+                        const hour = parseInt(text, 10);
+                        if (!isNaN(hour) && hour >= 0 && hour <= 23) {
+                          setNotificationSettings({ ...notificationSettings, startHour: hour });
+                        }
+                      }}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                    />
+                    <ThemedText style={[styles.timeLabel, { color: colors.textSecondary }]}>
+                      :00
+                    </ThemedText>
+                  </View>
+
+                  <ThemedText style={[styles.timeSeparator, { color: colors.textSecondary }]}>
+                    to
+                  </ThemedText>
+
+                  <View style={styles.timeInputGroup}>
+                    <ThemedText style={[styles.timeLabel, { color: colors.textSecondary }]}>
+                      End
+                    </ThemedText>
+                    <TextInput
+                      style={[styles.timeInput, { 
+                        backgroundColor: colors.background,
+                        borderColor: colors.border,
+                        color: colors.text
+                      }]}
+                      value={notificationSettings.endHour.toString()}
+                      onChangeText={(text) => {
+                        const hour = parseInt(text, 10);
+                        if (!isNaN(hour) && hour >= 0 && hour <= 23) {
+                          setNotificationSettings({ ...notificationSettings, endHour: hour });
+                        }
+                      }}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                    />
+                    <ThemedText style={[styles.timeLabel, { color: colors.textSecondary }]}>
+                      :00
+                    </ThemedText>
+                  </View>
+                </View>
+              </View>
+
+              <View style={[styles.infoBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <MaterialCommunityIcons name="information" size={20} color={colors.textSecondary} />
+                <ThemedText style={[styles.infoText, { color: colors.textSecondary }]}>
+                  You'll receive reminders every {notificationSettings.intervalHours} hour(s) between {notificationSettings.startHour}:00 and {notificationSettings.endHour}:00
+                </ThemedText>
+              </View>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.modalButton,
+                  styles.cancelModalButton,
+                  { borderColor: colors.border, opacity: pressed ? 0.7 : 1 }
+                ]}
+                onPress={() => setShowNotificationSettings(false)}
+              >
+                <ThemedText style={[styles.cancelButtonText, { color: colors.text }]}>
+                  Cancel
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.modalButton,
+                  styles.applyButton,
+                  { backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 }
+                ]}
+                onPress={handleSaveNotificationSettings}
+              >
+                <ThemedText style={styles.applyButtonText}>Save</ThemedText>
               </Pressable>
             </View>
           </Pressable>
@@ -633,5 +881,83 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  configureButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.xs,
+    borderWidth: 1,
+  },
+  configureButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.xl,
+  },
+  notificationSettingsContainer: {
+    marginBottom: Spacing.xl,
+  },
+  settingGroup: {
+    marginBottom: Spacing.xl,
+  },
+  intervalOptions: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  intervalButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.xs,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  intervalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  timeRangeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  timeInputGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  timeLabel: {
+    fontSize: 14,
+  },
+  timeInput: {
+    width: 50,
+    height: 44,
+    borderWidth: 1,
+    borderRadius: BorderRadius.xs,
+    paddingHorizontal: Spacing.sm,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  timeSeparator: {
+    fontSize: 14,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.xs,
+    borderWidth: 1,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });
