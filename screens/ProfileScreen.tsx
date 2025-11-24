@@ -177,6 +177,21 @@ export default function ProfileScreen() {
     );
   };
 
+  const downloadCSVOnWeb = (csvContent: string, filename: string) => {
+    if (typeof document !== 'undefined') {
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  };
+
   const handleExportData = async () => {
     if (!user) return;
     
@@ -191,27 +206,23 @@ export default function ProfileScreen() {
           {
             text: 'Export CSV',
             onPress: async () => {
-              try {
-                const success = await ExportService.exportToCSV(
-                  logs,
-                  stats,
-                  dailyGoal,
-                  user.name,
-                  { includeLogs: true, includeStats: true }
-                );
-                
-                if (success) {
+              const result = await ExportService.exportToCSV(
+                logs,
+                stats,
+                dailyGoal,
+                user.name,
+                { includeLogs: true, includeStats: true }
+              );
+              
+              if (result.success) {
+                if (result.needsWebFallback && result.csvContent && result.filename) {
+                  downloadCSVOnWeb(result.csvContent, result.filename);
+                  Alert.alert('Success', 'Your data has been downloaded successfully!');
+                } else {
                   Alert.alert('Success', 'Your data has been exported successfully!');
                 }
-              } catch (error: any) {
-                if (error.message === 'SHARING_NOT_AVAILABLE') {
-                  Alert.alert(
-                    'Export Not Available',
-                    'Data export is only available on mobile devices. Please use the Expo Go app on your phone or tablet to export your data.'
-                  );
-                } else {
-                  Alert.alert('Error', 'Failed to export data. Please try again.');
-                }
+              } else {
+                Alert.alert('Error', 'Failed to export data. Please try again.');
               }
             },
           },

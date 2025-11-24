@@ -7,6 +7,13 @@ export interface ExportOptions {
   includeStats: boolean;
 }
 
+export interface ExportResult {
+  success: boolean;
+  csvContent?: string;
+  filename?: string;
+  needsWebFallback?: boolean;
+}
+
 export const ExportService = {
   async exportToCSV(
     logs: WaterLog[],
@@ -14,7 +21,7 @@ export const ExportService = {
     dailyGoal: number,
     userName: string,
     options: ExportOptions = { includeLogs: true, includeStats: true }
-  ): Promise<boolean> {
+  ): Promise<ExportResult> {
     try {
       let csvContent = '';
       const timestamp = new Date().toISOString().split('T')[0];
@@ -76,8 +83,12 @@ export const ExportService = {
 
       const isAvailable = await Sharing.isAvailableAsync();
       if (!isAvailable) {
-        console.warn('Sharing is not available on this platform. File saved at:', filePath);
-        throw new Error('SHARING_NOT_AVAILABLE');
+        return {
+          success: true,
+          csvContent,
+          filename,
+          needsWebFallback: true,
+        };
       }
       
       await Sharing.shareAsync(filePath, {
@@ -86,13 +97,10 @@ export const ExportService = {
         UTI: 'public.comma-separated-values-text',
       });
       
-      return true;
+      return { success: true };
     } catch (error: any) {
-      if (error.message === 'SHARING_NOT_AVAILABLE') {
-        throw error;
-      }
       console.error('Export failed:', error);
-      return false;
+      return { success: false };
     }
   },
 
