@@ -1,39 +1,42 @@
-import React from "react";
-import { StyleSheet } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
-
-import { RootNavigator } from "@/navigation/RootNavigator";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { AuthProvider } from "@/hooks/useAuth";
-import { WaterTrackingProvider } from "@/hooks/useWaterTracking";
+import React, { useEffect, useState } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AuthProvider } from './src/contexts/AuthContext';
+import { ThemeProvider } from './src/contexts/ThemeContext';
+import { AppNavigator } from './src/navigation/AppNavigator';
+import database from './src/database/database';
+import { ActivityIndicator, View } from 'react-native';
 
 export default function App() {
+  const [dbReady, setDbReady] = useState(false);
+
+  useEffect(() => {
+    initDatabase();
+  }, []);
+
+  const initDatabase = async () => {
+    try {
+      await database.init();
+      setDbReady(true);
+    } catch (error) {
+      console.error('Failed to initialize database:', error);
+    }
+  };
+
+  if (!dbReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
   return (
-  <ErrorBoundary>
     <SafeAreaProvider>
-        <GestureHandlerRootView style={styles.root}>
-          <KeyboardProvider>
-            <AuthProvider>
-              <WaterTrackingProvider>
-                <NavigationContainer>
-                  <RootNavigator />
-                </NavigationContainer>
-                <StatusBar style="auto" />
-              </WaterTrackingProvider>
-            </AuthProvider>
-          </KeyboardProvider>
-        </GestureHandlerRootView>
-      </SafeAreaProvider>
-  </ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppNavigator />
+        </AuthProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-});
